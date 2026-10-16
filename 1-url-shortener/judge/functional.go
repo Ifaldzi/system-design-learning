@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +25,17 @@ type shortenResponse struct {
 	ShortKey string `json:"short_key"`
 }
 
+// judgeContext holds per-run data. All fixtures (alias, long URL) are made
+// unique per run so repeated judge runs never collide with data persisted by
+// earlier runs.
+type judgeContext struct {
+	client  *http.Client
+	baseURL string
+	runID   string
+	alias   string
+	longURL string
+}
+
 func newHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 10 * time.Second,
@@ -33,28 +46,44 @@ func newHTTPClient() *http.Client {
 	}
 }
 
+func newRunID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
+}
+
 func runFunctionalTests(client *http.Client, baseURL string) []functionalResult {
-	tests := []func(*http.Client, string) functionalResult{
-		testBasicFlow,
-		testCustomAlias,
-		testDuplicateAlias,
-		testInvalidURL,
-		testNonexistentKey,
+	runID := newRunID()
+	ctx := &judgeContext{
+		client:  client,
+		baseURL: baseURL,
+		runID:   runID,
+		alias:   "my-alias-" + runID,
+		longURL: "https://example.com/very-long-path-" + runID,
+	}
+
+	tests := []func() functionalResult{
+		ctx.basicFlow,
+		ctx.customAlias,
+		ctx.duplicateAlias,
+		ctx.invalidURL,
+		ctx.nonexistentKey,
 	}
 
 	results := make([]functionalResult, 0, len(tests))
 	for _, fn := range tests {
-		results = append(results, fn(client, baseURL))
+		results = append(results, fn())
 	}
 	return results
 }
 
-func testBasicFlow(client *http.Client, baseURL string) functionalResult {
+func (c *judgeContext) basicFlow() functionalResult {
 	res := functionalResult{Name: "Basic Shorten & Redirect"}
-	const longURL = "https://example.com/very-long-path"
 
-	status, body, err := postJSON(client, baseURL+"/api/v1/shorten",
-		map[string]string{"url": longURL})
+	status, body, err := postJSON(c.client, c.baseURL+"/api/v1/shorten",
+		map[string]string{"url": c.longURL})
 	if err != nil {
 		res.Detail = err.Error()
 		return res
@@ -75,7 +104,7 @@ func testBasicFlow(client *http.Client, baseURL string) functionalResult {
 	}
 	res.Key = sr.ShortKey
 
-	loc, rstatus, err := getRedirect(client, baseURL+"/"+sr.ShortKey)
+	loc, rstatus, err := getRedirect(c.client, c.baseURL+"/"+sr.ShortKey)
 	if err != nil {
 		res.Detail = err.Error()
 		return res
@@ -84,8 +113,8 @@ func testBasicFlow(client *http.Client, baseURL string) functionalResult {
 		res.Detail = fmt.Sprintf("expected 302/307, got %d", rstatus)
 		return res
 	}
-	if loc != longURL {
-		res.Detail = fmt.Sprintf("Location = %q, want %q", loc, longURL)
+	if loc != c.longURL {
+		res.Detail = fmt.Sprintf("Location = %q, want %q", loc, c.longURL)
 		return res
 	}
 
@@ -93,12 +122,11 @@ func testBasicFlow(client *http.Client, baseURL string) functionalResult {
 	return res
 }
 
-func testCustomAlias(client *http.Client, baseURL string) functionalResult {
+func (c *judgeContext) customAlias() functionalResult {
 	res := functionalResult{Name: "Custom Alias Support"}
-	const alias = "my-alias"
 
-	status, body, err := postJSON(client, baseURL+"/api/v1/shorten",
-		map[string]string{"url": "https://example.com/custom-alias", "custom_alias": alias})
+	status, body, err := postJSON(c.client, c.baseURL+"/api/v1/shorten",
+		map[string]string{"url": "https://example.com/custom-alias-" + c.runID, "custom_alias": c.alias})
 	if err != nil {
 		res.Detail = err.Error()
 		return res
@@ -113,8 +141,8 @@ func testCustomAlias(client *http.Client, baseURL string) functionalResult {
 		res.Detail = "invalid JSON response: " + err.Error()
 		return res
 	}
-	if sr.ShortKey != alias {
-		res.Detail = fmt.Sprintf("short_key = %q, want %q", sr.ShortKey, alias)
+	if sr.ShortKey != c.alias {
+		res.Detail = fmt.Sprintf("short_key = %q, want %q", sr.ShortKey, c.alias)
 		return res
 	}
 	res.Key = sr.ShortKey
@@ -122,12 +150,11 @@ func testCustomAlias(client *http.Client, baseURL string) functionalResult {
 	return res
 }
 
-func testDuplicateAlias(client *http.Client, baseURL string) functionalResult {
+func (c *judgeContext) duplicateAlias() functionalResult {
 	res := functionalResult{Name: "Duplicate Alias Conflict (409)"}
-	const alias = "my-alias"
 
-	status, _, err := postJSON(client, baseURL+"/api/v1/shorten",
-		map[string]string{"url": "https://example.com/duplicate", "custom_alias": alias})
+	status, _, err := postJSON(c.client, c.baseURL+"/api/v1/shorten",
+		map[string]string{"url": "https://example.com/duplicate-" + c.runID, "custom_alias": c.alias})
 	if err != nil {
 		res.Detail = err.Error()
 		return res
@@ -140,10 +167,10 @@ func testDuplicateAlias(client *http.Client, baseURL string) functionalResult {
 	return res
 }
 
-func testInvalidURL(client *http.Client, baseURL string) functionalResult {
+func (c *judgeContext) invalidURL() functionalResult {
 	res := functionalResult{Name: "Invalid URL Validation (400)"}
 
-	status, _, err := postJSON(client, baseURL+"/api/v1/shorten",
+	status, _, err := postJSON(c.client, c.baseURL+"/api/v1/shorten",
 		map[string]string{"url": "not-a-url"})
 	if err != nil {
 		res.Detail = err.Error()
@@ -157,10 +184,10 @@ func testInvalidURL(client *http.Client, baseURL string) functionalResult {
 	return res
 }
 
-func testNonexistentKey(client *http.Client, baseURL string) functionalResult {
+func (c *judgeContext) nonexistentKey() functionalResult {
 	res := functionalResult{Name: "Non-Existent Key Handling (404)"}
 
-	_, status, err := getRedirect(client, baseURL+"/"+nonexistentKey)
+	_, status, err := getRedirect(c.client, c.baseURL+"/"+nonexistentKey)
 	if err != nil {
 		res.Detail = err.Error()
 		return res

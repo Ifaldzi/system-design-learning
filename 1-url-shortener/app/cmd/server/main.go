@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +21,12 @@ func main() {
 	baseURL := env("BASE_URL", "http://localhost:8080")
 	addr := env("ADDR", ":8080")
 
-	store := storage.NewMemory()
+	store, err := openStore(context.Background())
+	if err != nil {
+		log.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+
 	c := cache.NewMemory()
 	svc := service.NewShortener(store, c, baseURL)
 	h := handler.NewShortener(svc)
@@ -43,6 +50,26 @@ func main() {
 	log.Printf("url shortener listening on %s (base=%s)", addr, baseURL)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// openStore selects the SQL backend from env:
+//
+//	DB_DRIVER=sqlite|postgres|mysql   (default: sqlite)
+//	DB_DSN=<driver specific DSN>      (default: shared in-memory sqlite)
+func openStore(ctx context.Context) (*storage.SQLStore, error) {
+	driver := env("DB_DRIVER", "sqlite")
+	dsn := env("DB_DSN", "file::memory:?cache=shared")
+
+	switch driver {
+	case "postgres":
+		return storage.OpenPostgres(ctx, dsn)
+	case "mysql":
+		return storage.OpenMySQL(ctx, dsn)
+	case "sqlite":
+		return storage.OpenSQLite(ctx, dsn)
+	default:
+		return nil, fmt.Errorf("unknown DB_DRIVER %q (want sqlite|postgres|mysql)", driver)
 	}
 }
 

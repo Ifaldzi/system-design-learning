@@ -22,9 +22,11 @@ Run the judge:  `make judge`
 
 ## Phase 1 — Implement storage (foundation)
 
-- [ ] `storage.Memory.Save` — store a `*Link`, return `ErrConflict` on duplicate key.
-- [ ] `storage.Memory.Get` — return `ErrNotFound` for missing/expired links.
-- [ ] `storage.Memory.IncrementClicks` — atomically bump `ClickCount` (`sync.Mutex`).
+- [ ] Apply `internal/storage/schema.sql` to your database of choice.
+- [ ] Pick a driver with `DB_DRIVER` (`sqlite` / `postgres` / `mysql`) and DSN `DB_DSN`.
+- [ ] `SQLStore.Save` — INSERT a `*Link`; map unique-violation to `ErrConflict`.
+- [ ] `SQLStore.Get` — SELECT by key; return `ErrNotFound` for missing/expired rows.
+- [ ] `SQLStore.IncrementClicks` — atomic `UPDATE ... SET click_count = click_count + 1`.
 - [ ] Add a helper to generate a random short key (e.g. base62 of 6 chars).
 - [ ] Sanity-test storage with a small Go test (`go test ./...`).
 

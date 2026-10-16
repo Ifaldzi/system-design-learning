@@ -6,3 +6,8 @@
 # test / coverage artifacts
 *.out
 *.test
+
+# local databases
+*.db
+*.sqlite
+*.sqlite3
