@@ -1,0 +1,8 @@
+# compiled binaries
+/app/server
+/app/urlshortener
+/judge/urlshortener-judge
+
+# test / coverage artifacts
+*.out
+*.test
