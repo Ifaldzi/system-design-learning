@@ -1,6 +1,6 @@
 module urlshortener
 
-go 1.22
+go 1.27.0
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
