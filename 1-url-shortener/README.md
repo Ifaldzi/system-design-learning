@@ -67,12 +67,23 @@ cd app && go run ./cmd/server
 ```
 
 The server listens on `:8080` and uses `http://localhost:8080` as the short-URL
-base.
+base. To change the port for **both** the app and the judge, set `PORT` once
+when using the Makefile:
+
+```sh
+make app PORT=9090     # terminal 1
+make judge PORT=9090   # terminal 2
+```
+
+`make app` passes `PORT` to both `ADDR` (`:9090`) and `BASE_URL`
+(`http://localhost:9090`), and `make judge` targets the same `BASE_URL`, so the
+port only needs to be changed in one place.
 
 | Env var     | Default                      | Description                          |
 | ----------- | ---------------------------- | ------------------------------------ |
-| `ADDR`      | `:8080`                      | Listen address                       |
-| `BASE_URL`  | `http://localhost:8080`      | Prefix used to build `short_url`     |
+| `PORT`      | `8080`                       | Port for both `ADDR` and `BASE_URL`  |
+| `ADDR`      | `:<PORT>`                    | Override the listen address          |
+| `BASE_URL`  | `http://localhost:<PORT>`    | Override the `short_url` prefix      |
 | `DB_DRIVER` | `sqlite`                     | `sqlite` \| `postgres` \| `mysql`    |
 | `DB_DSN`    | `file::memory:?cache=shared` | Driver-specific connection string    |
 

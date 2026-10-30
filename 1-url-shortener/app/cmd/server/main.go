@@ -18,8 +18,9 @@ import (
 )
 
 func main() {
-	baseURL := env("BASE_URL", "http://localhost:8080")
-	addr := env("ADDR", ":8080")
+	port := env("PORT", "8080")
+	baseURL := env("BASE_URL", "http://localhost:"+port)
+	addr := env("ADDR", ":"+port)
 
 	store, err := openStore(context.Background())
 	if err != nil {
