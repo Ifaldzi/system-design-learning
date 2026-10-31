@@ -16,7 +16,7 @@ help:
 	@echo "  Override the port for both app and judge with: make <target> PORT=9090"
 
 app:
-	cd $(APP_DIR) && PORT=$(PORT) go run ./cmd/server
+	cd $(APP_DIR) && go run ./cmd/server
 
 judge:
 	cd $(JUDGE_DIR) && go run . -base $(BASE_URL)

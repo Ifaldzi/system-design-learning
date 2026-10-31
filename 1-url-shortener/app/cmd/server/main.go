@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 
 	"urlshortener/internal/cache"
 	"urlshortener/internal/handler"
@@ -18,6 +20,10 @@ import (
 )
 
 func main() {
+	if err := loadEnvFile(); err != nil {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	port := env("PORT", "8080")
 	baseURL := env("BASE_URL", "http://localhost:"+port)
 	addr := env("ADDR", ":"+port)
@@ -52,6 +58,27 @@ func main() {
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// loadEnvFile looks for .env in the current directory and its parent. This
+// supports running the server from either app/ or the repository root.
+func loadEnvFile() error {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < 2; i++ {
+		path := filepath.Join(workingDir, ".env")
+		if _, err := os.Stat(path); err == nil {
+			return godotenv.Load(path)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		workingDir = filepath.Dir(workingDir)
+	}
+
+	return nil
 }
 
 // openStore selects the SQL backend from env:

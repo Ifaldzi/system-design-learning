@@ -61,6 +61,8 @@ Request body for `POST /api/v1/shorten`:
 ## Run the app
 
 ```sh
+cp .env.example .env
+# Edit .env if needed; it is local-only and ignored by git.
 make app
 # or
 cd app && go run ./cmd/server
@@ -78,6 +80,10 @@ make judge PORT=9090   # terminal 2
 `make app` passes `PORT` to both `ADDR` (`:9090`) and `BASE_URL`
 (`http://localhost:9090`), and `make judge` targets the same `BASE_URL`, so the
 port only needs to be changed in one place.
+
+The server loads variables from `.env` in the repository root (or the current
+directory) when it starts. Variables already set in the process environment
+take precedence. `.env.example` lists the supported server variables.
 
 | Env var     | Default                      | Description                          |
 | ----------- | ---------------------------- | ------------------------------------ |
