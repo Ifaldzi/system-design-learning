@@ -26,3 +26,10 @@ type Storage interface {
 	Get(ctx context.Context, shortKey string) (*Link, error)
 	IncrementClicks(ctx context.Context, shortKey string) error
 }
+
+// Store combines the CRUD contract with the shared database lifecycle methods.
+type Store interface {
+	Storage
+	Close() error
+	Ping(ctx context.Context) error
+}

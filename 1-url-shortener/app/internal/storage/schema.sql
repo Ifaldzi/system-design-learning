@@ -1,5 +1,5 @@
 -- Canonical schema for the URL shortener. Apply it manually or from a
--- migration once you implement SQLStore's CRUD methods.
+-- backend-specific migration.
 
 CREATE TABLE IF NOT EXISTS links (
     short_key    VARCHAR(32)  PRIMARY KEY,

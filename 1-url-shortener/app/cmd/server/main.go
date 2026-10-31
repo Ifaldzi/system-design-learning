@@ -85,7 +85,7 @@ func loadEnvFile() error {
 //
 //	DB_DRIVER=sqlite|postgres|mysql   (default: sqlite)
 //	DB_DSN=<driver specific DSN>      (default: shared in-memory sqlite)
-func openStore(ctx context.Context) (*storage.SQLStore, error) {
+func openStore(ctx context.Context) (storage.Store, error) {
 	driver := env("DB_DRIVER", "sqlite")
 	dsn := env("DB_DSN", "file::memory:?cache=shared")
 
